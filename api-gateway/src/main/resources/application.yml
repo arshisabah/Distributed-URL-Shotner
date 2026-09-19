@@ -1,0 +1,36 @@
+spring:
+  application.name: api-gateway
+  cloud.gateway:
+    globalcors:
+      cors-configurations:
+        '[/**]':
+          allowedOriginPatterns: ["*"]
+          allowedMethods: ["*"]
+          allowedHeaders: ["*"]
+          allowCredentials: true
+  data.redis:
+    host: ${REDIS_HOST:localhost}
+    port: ${REDIS_PORT:6379}
+  threads.virtual.enabled: true
+
+server:
+  port: ${SERVER_PORT:80}
+
+services:
+  auth-url:      ${AUTH_SERVICE_URL:http://localhost:8081}
+  url-url:       ${URL_SERVICE_URL:http://localhost:8080}
+  analytics-url: ${ANALYTICS_SERVICE_URL:http://localhost:8082}
+
+jwt:
+  public-key: ${JWT_PUBLIC_KEY:}
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      auth-cb:      { sliding-window-size: 10, failure-rate-threshold: 50, wait-duration-in-open-state: 10s }
+      url-cb:       { sliding-window-size: 20, failure-rate-threshold: 50, wait-duration-in-open-state: 10s }
+      analytics-cb: { sliding-window-size: 10, failure-rate-threshold: 60, wait-duration-in-open-state: 30s }
+
+management:
+  endpoints.web.exposure.include: health,info,prometheus,gateway
+  endpoint.health.probes.enabled: true

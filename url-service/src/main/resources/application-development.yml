@@ -1,0 +1,48 @@
+# Development profile — overrides for local Docker Compose
+spring:
+  datasource:
+    url:      jdbc:postgresql://localhost:5432/urlshortener
+    username: shortener
+    password: devpassword
+  data:
+    redis:
+      host: localhost
+      port: 6379
+  kafka:
+    bootstrap-servers: localhost:9092
+  jpa:
+    properties:
+      hibernate:
+        format_sql: true
+  flyway:
+    baseline-on-migrate: true
+
+app:
+  base-url:    http://localhost:8080
+  worker-id:   1
+  instance-id: dev-1
+
+jwt:
+  # Dev keypair — NEVER use in production
+  # Generated with: openssl genrsa 2048 | openssl pkcs8 -topk8 -nocrypt
+  public-key: |
+    -----BEGIN PUBLIC KEY-----
+    MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA2a2rwplBQLF29amygykE
+    MmYz0+Kcj3bKBp29Ko3hs5kEaBAjgfG0TGKX6iamCHtJ5MsNE2XAJC9G7yUWe8t
+    BioFHMCFOKiS7bGTLyCKMk7OoVIrOX8MOo2eFnzCVYXUmTSNYj1E0pEMQdNUfuKN
+    nDWN1IuZnCLhgvM+a7DyQYCGGbVj5gRFMBTzJ0LovO6yzT9bk5JGSiNa5QL0P7UH
+    1JYGVjAJ2jFSdlFnxL5BuwFQiANZzLgSdpBxeKKh/vEJbA+FbFX1QnBBCeFdIL0w
+    xyDxWmGVqCGTgKL1JoIqT0JMlPv6R1zJY7lrR3E8eEAqLg2d+4hU9JkMHxRB6wID
+    AQAB
+    -----END PUBLIC KEY-----
+
+logging:
+  level:
+    com.shortener: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql: TRACE
+
+management:
+  tracing:
+    sampling:
+      probability: 1.0   # Sample 100% of traces in dev

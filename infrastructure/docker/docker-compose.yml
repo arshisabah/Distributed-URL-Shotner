@@ -1,0 +1,252 @@
+version: '3.9'
+
+# ─── Networks ─────────────────────────────────────────────────────────────────
+networks:
+  shortener-net:
+    driver: bridge
+
+# ─── Volumes ──────────────────────────────────────────────────────────────────
+volumes:
+  postgres-data:
+  redis-data:
+  kafka-data:
+  prometheus-data:
+  grafana-data:
+
+# ─── Common environment ────────────────────────────────────────────────────────
+x-common-env: &common-env
+  SPRING_PROFILES_ACTIVE: development
+  DB_URL:      jdbc:postgresql://postgres:5432/urlshortener
+  DB_USERNAME: shortener
+  DB_PASSWORD: devpassword
+  REDIS_HOST:  redis
+  REDIS_PORT:  6379
+  KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+  # Dev RSA keypair — REPLACE in production
+  JWT_PRIVATE_KEY: |
+    -----BEGIN PRIVATE KEY-----
+    MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDZravCmUFAsXb1
+    qbKDKQQyZjPT4pyPdsoGnb0qjeGzmQRoECOB8bRMYpfqJqYIe0nkyw0TZcAkL0b
+    vJRZ7y0GKgUcwIU4qJLtsZMvIIoyTs6hUis5fww6jZ4WfMJVhdSZNI1iPUTSkQxB
+    01R+4o2cNY3Ui5mcIuGC8z5rsPJBgIYZtWPmBEUwFPMnQui87rLNP1uTkkZKI1rl
+    AvQ/tQfUlgZWMAnaMVJ2UWfEvkG7AVCIA1nMuBJ2kHF4oqH+8QlsD4VsVfVCcEEJ
+    4V0gvTDHIPFaYZWoIZOAovUmgipPQkyU+/pHXMljuWtHcTx4QCouDZ37iFT0mQwf
+    FEHrAgMBAAECggEALq8C1nUHzxeL2GJBf6kIAoN8DinLpVIvKPe1EsBXVMK2eMOf
+    0I1XSjhJCzJRNJIeJvIqHgQxJjjHxK5L3Vz8SX7cMV2tqGf7NZ1P0fv9pOQFxm5V
+    -----END PRIVATE KEY-----
+  JWT_PUBLIC_KEY: |
+    -----BEGIN PUBLIC KEY-----
+    MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA2a2rwplBQLF29amygykE
+    MmYz0+Kcj3bKBp29Ko3hs5kEaBAjgfG0TGKX6iamCHtJ5MsNE2XAJC9G7yUWe8t
+    BioFHMCFOKiS7bGTLyCKMk7OoVIrOX8MOo2eFnzCVYXUmTSNYj1E0pEMQdNUfuKN
+    nDWN1IuZnCLhgvM+a7DyQYCGGbVj5gRFMBTzJ0LovO6yzT9bk5JGSiNa5QL0P7UH
+    1JYGVjAJ2jFSdlFnxL5BuwFQiANZzLgSdpBxeKKh/vEJbA+FbFX1QnBBCeFdIL0w
+    xyDxWmGVqCGTgKL1JoIqT0JMlPv6R1zJY7lrR3E8eEAqLg2d+4hU9JkMHxRB6wID
+    AQAB
+    -----END PUBLIC KEY-----
+
+services:
+
+  # ─── Infrastructure ──────────────────────────────────────────────────────────
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: shortener-postgres
+    environment:
+      POSTGRES_DB:       urlshortener
+      POSTGRES_USER:     shortener
+      POSTGRES_PASSWORD: devpassword
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks: [shortener-net]
+    healthcheck:
+      test:         ["CMD-SHELL", "pg_isready -U shortener -d urlshortener"]
+      interval:     5s
+      timeout:      5s
+      retries:      10
+      start_period: 10s
+
+  redis:
+    image: redis:7-alpine
+    container_name: shortener-redis
+    command: >
+      redis-server
+        --maxmemory 512mb
+        --maxmemory-policy allkeys-lru
+        --appendonly no
+        --save ""
+    volumes:
+      - redis-data:/data
+    ports:
+      - "6379:6379"
+    networks: [shortener-net]
+    healthcheck:
+      test:     ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout:  3s
+      retries:  10
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.0
+    container_name: shortener-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME:   2000
+    networks: [shortener-net]
+
+  kafka:
+    image: confluentinc/cp-kafka:7.6.0
+    container_name: shortener-kafka
+    depends_on: [zookeeper]
+    environment:
+      KAFKA_BROKER_ID:                        1
+      KAFKA_ZOOKEEPER_CONNECT:                zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS:             PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP:   PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME:       PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE:        "true"
+      KAFKA_NUM_PARTITIONS:                   12
+      KAFKA_DEFAULT_REPLICATION_FACTOR:       1
+      KAFKA_LOG_RETENTION_HOURS:              168
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    ports:
+      - "29092:29092"   # Host access on 29092; services use kafka:9092
+    networks: [shortener-net]
+    healthcheck:
+      test:     ["CMD-SHELL", "kafka-broker-api-versions --bootstrap-server kafka:9092 2>/dev/null | grep -q '0'"]
+      interval: 10s
+      timeout:  10s
+      retries:  10
+      start_period: 30s
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: shortener-kafka-ui
+    depends_on: [kafka]
+    environment:
+      KAFKA_CLUSTERS_0_NAME:             local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+    ports:
+      - "8090:8080"
+    networks: [shortener-net]
+
+  # ─── Application services ─────────────────────────────────────────────────
+
+  auth-service:
+    build:
+      context:    .
+      dockerfile: auth-service/Dockerfile
+    container_name: shortener-auth
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis:    { condition: service_healthy }
+    environment:
+      <<: *common-env
+      SERVER_PORT: 8081
+      WORKER_ID:   2
+    ports:
+      - "8081:8081"
+    networks: [shortener-net]
+    healthcheck:
+      test:         ["CMD-SHELL", "curl -sf http://localhost:8081/actuator/health/liveness || exit 1"]
+      interval:     10s
+      start_period: 60s
+      retries:      5
+
+  url-service:
+    build:
+      context:    .
+      dockerfile: url-service/Dockerfile
+    container_name: shortener-url
+    depends_on:
+      postgres:     { condition: service_healthy }
+      redis:        { condition: service_healthy }
+      kafka:        { condition: service_healthy }
+      auth-service: { condition: service_healthy }
+    environment:
+      <<: *common-env
+      SERVER_PORT: 8080
+      WORKER_ID:   1
+      APP_BASE_URL: http://localhost
+    ports:
+      - "8080:8080"
+    networks: [shortener-net]
+    healthcheck:
+      test:         ["CMD-SHELL", "curl -sf http://localhost:8080/actuator/health/liveness || exit 1"]
+      interval:     10s
+      start_period: 90s
+      retries:      5
+
+  analytics-service:
+    build:
+      context:    .
+      dockerfile: analytics-service/Dockerfile
+    container_name: shortener-analytics
+    depends_on:
+      redis: { condition: service_healthy }
+      kafka: { condition: service_healthy }
+    environment:
+      <<: *common-env
+      SERVER_PORT: 8082
+    ports:
+      - "8082:8082"
+    networks: [shortener-net]
+    healthcheck:
+      test:         ["CMD-SHELL", "curl -sf http://localhost:8082/actuator/health/liveness || exit 1"]
+      interval:     10s
+      start_period: 60s
+      retries:      5
+
+  api-gateway:
+    build:
+      context:    .
+      dockerfile: api-gateway/Dockerfile
+    container_name: shortener-gateway
+    depends_on:
+      url-service:  { condition: service_healthy }
+      auth-service: { condition: service_healthy }
+    environment:
+      <<: *common-env
+      SERVER_PORT:          80
+      AUTH_SERVICE_URL:     http://auth-service:8081
+      URL_SERVICE_URL:      http://url-service:8080
+      ANALYTICS_SERVICE_URL: http://analytics-service:8082
+    ports:
+      - "80:80"
+    networks: [shortener-net]
+
+  # ─── Observability ────────────────────────────────────────────────────────
+
+  prometheus:
+    image: prom/prometheus:v2.51.0
+    container_name: shortener-prometheus
+    volumes:
+      - ./infrastructure/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.retention.time=7d'
+      - '--web.enable-lifecycle'
+    ports:
+      - "9090:9090"
+    networks: [shortener-net]
+
+  grafana:
+    image: grafana/grafana:10.4.0
+    container_name: shortener-grafana
+    environment:
+      GF_SECURITY_ADMIN_USER:     admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP:     "false"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./infrastructure/grafana/provisioning:/etc/grafana/provisioning:ro
+    ports:
+      - "3000:3000"
+    depends_on: [prometheus]
+    networks: [shortener-net]
