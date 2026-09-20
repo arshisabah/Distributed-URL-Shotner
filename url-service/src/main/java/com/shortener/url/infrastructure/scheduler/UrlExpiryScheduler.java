@@ -125,19 +125,15 @@ public class UrlExpiryScheduler {
     }
 
     private void releaseLeadership() {
-        // Only release if we still hold it (Lua CAS to prevent releasing another pod's lock)
         String script = """
-            if redis.call('get', KEYS[1]) == ARGV[1] then
-                return redis.call('del', KEYS[1])
-            else return 0 end
-            """;
-        redis.execute(
-            org.springframework.data.redis.core.script.DefaultRedisScript.<Long>builder()
-                .scriptText(script)
-                .resultType(Long.class)
-                .build(),
-            List.of(LEADER_KEY),
-            instanceId
-        );
+                if redis.call('get', KEYS[1]) == ARGV[1] then
+                    return redis.call('del', KEYS[1])
+                else return 0 end
+                """;
+        org.springframework.data.redis.core.script.DefaultRedisScript<Long> redisScript =
+            new org.springframework.data.redis.core.script.DefaultRedisScript<>();
+        redisScript.setScriptText(script);
+        redisScript.setResultType(Long.class);
+        redis.execute(redisScript, List.of(LEADER_KEY), instanceId);
     }
 }

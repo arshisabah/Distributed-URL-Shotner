@@ -1,0 +1,3 @@
+com\shortener\analytics\AnalyticsServiceApplication.class
+com\shortener\analytics\AnalyticsController.class
+com\shortener\analytics\ClickEventConsumer.class

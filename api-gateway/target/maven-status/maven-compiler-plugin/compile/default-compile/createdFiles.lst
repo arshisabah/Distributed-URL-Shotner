@@ -1,0 +1,4 @@
+com\shortener\gateway\JwtGatewayFilter.class
+com\shortener\gateway\FallbackController.class
+com\shortener\gateway\ApiGatewayApplication.class
+com\shortener\gateway\RouteConfig.class
