@@ -184,16 +184,32 @@ class JwtTokenProvider {
         }
     }
 
-    private RSAPrivateKey loadPrivateKey(String pem) throws Exception {
-        String stripped = pem.replaceAll("-----.*?-----", "").replaceAll("\\s+", "");
-        byte[] decoded  = Base64.getDecoder().decode(stripped);
+    private RSAPrivateKey loadPrivateKey(String keyValue) throws Exception {
+        // Support both raw PEM and base64-encoded PEM (for env var passing)
+        String pem = keyValue.trim();
+        if (!pem.contains("-----")) {
+            // It's base64-encoded PEM — decode it first
+            pem = new String(Base64.getDecoder().decode(pem));
+        }
+        String stripped = pem
+            .replaceAll("-----BEGIN.*?-----", "")
+            .replaceAll("-----END.*?-----", "")
+            .replaceAll("\\s+", "");
+        byte[] decoded = Base64.getDecoder().decode(stripped);
         return (RSAPrivateKey) KeyFactory.getInstance("RSA")
             .generatePrivate(new PKCS8EncodedKeySpec(decoded));
     }
 
-    private RSAPublicKey loadPublicKey(String pem) throws Exception {
-        String stripped = pem.replaceAll("-----.*?-----", "").replaceAll("\\s+", "");
-        byte[] decoded  = Base64.getDecoder().decode(stripped);
+    private RSAPublicKey loadPublicKey(String keyValue) throws Exception {
+        String pem = keyValue.trim();
+        if (!pem.contains("-----")) {
+            pem = new String(Base64.getDecoder().decode(pem));
+        }
+        String stripped = pem
+            .replaceAll("-----BEGIN.*?-----", "")
+            .replaceAll("-----END.*?-----", "")
+            .replaceAll("\\s+", "");
+        byte[] decoded = Base64.getDecoder().decode(stripped);
         return (RSAPublicKey) KeyFactory.getInstance("RSA")
             .generatePublic(new X509EncodedKeySpec(decoded));
     }

@@ -8,10 +8,10 @@ spring:
       maximum-pool-size: 10
       minimum-idle:      2
   jpa:
-    hibernate.ddl-auto: validate
+    hibernate.ddl-auto: none
     open-in-view: false
   flyway:
-    enabled: true
+    enabled: false
     locations: classpath:db/migration
     baseline-on-migrate: true
   data.redis:
@@ -32,3 +32,5 @@ jwt:
 management:
   endpoints.web.exposure.include: health,info,prometheus
   endpoint.health.probes.enabled: true
+
+

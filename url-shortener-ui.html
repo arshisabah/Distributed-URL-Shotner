@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shrtnr — URL Shortener</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --ink:#0F172A;--ink-2:#475569;--ink-3:#94A3B8;
+    --accent:#4F46E5;--accent-light:#EEF2FF;--accent-dark:#3730A3;
+    --surface:#FFFFFF;--surface-2:#F8FAFC;--surface-3:#F1F5F9;
+    --border:#E2E8F0;--border-2:#CBD5E1;
+    --success:#10B981;--success-bg:#ECFDF5;
+    --danger:#EF4444;--danger-bg:#FEF2F2;
+    --warn:#F59E0B;--warn-bg:#FFFBEB;
+    --radius:8px;--radius-lg:12px;
+    --mono:'JetBrains Mono',monospace;
+    --sans:'Inter',system-ui,sans-serif;
+  }
+  body{font-family:var(--sans);background:var(--surface-2);color:var(--ink);min-height:100vh;font-size:15px;line-height:1.6}
+  /* Layout */
+  .app{display:grid;grid-template-rows:auto 1fr;min-height:100vh}
+  /* Header */
+  header{background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100}
+  .header-inner{max-width:1100px;margin:0 auto;padding:0 24px;height:60px;display:flex;align-items:center;justify-content:space-between;gap:16px}
+  .logo{font-family:var(--mono);font-weight:500;font-size:18px;color:var(--ink);letter-spacing:-0.5px}
+  .logo span{color:var(--accent)}
+  nav{display:flex;gap:4px}
+  .nav-btn{background:none;border:none;padding:7px 14px;border-radius:var(--radius);font-family:var(--sans);font-size:14px;font-weight:500;color:var(--ink-2);cursor:pointer;transition:background .15s,color .15s}
+  .nav-btn:hover,.nav-btn.active{background:var(--surface-3);color:var(--ink)}
+  .nav-btn.active{color:var(--accent)}
+  .header-right{display:flex;align-items:center;gap:12px}
+  .user-info{font-size:13px;color:var(--ink-2)}
+  /* Buttons */
+  .btn{display:inline-flex;align-items:center;gap:7px;padding:9px 18px;border-radius:var(--radius);font-family:var(--sans);font-size:14px;font-weight:500;cursor:pointer;border:none;transition:all .15s;white-space:nowrap}
+  .btn-primary{background:var(--accent);color:#fff}
+  .btn-primary:hover{background:var(--accent-dark)}
+  .btn-secondary{background:var(--surface);color:var(--ink);border:1px solid var(--border-2)}
+  .btn-secondary:hover{background:var(--surface-3);border-color:var(--border-2)}
+  .btn-ghost{background:none;color:var(--ink-2);border:1px solid transparent}
+  .btn-ghost:hover{background:var(--surface-3);color:var(--ink)}
+  .btn-danger{background:none;color:var(--danger);border:1px solid var(--border)}
+  .btn-danger:hover{background:var(--danger-bg);border-color:var(--danger)}
+  .btn-sm{padding:6px 12px;font-size:13px}
+  .btn-lg{padding:13px 28px;font-size:16px}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+  /* Main */
+  main{max-width:1100px;margin:0 auto;padding:40px 24px;width:100%}
+  /* Pages */
+  .page{display:none}
+  .page.active{display:block}
+  /* Hero section */
+  .hero{max-width:640px;margin:0 auto 56px;text-align:center}
+  .hero h1{font-size:42px;font-weight:600;letter-spacing:-1px;line-height:1.15;margin-bottom:12px}
+  .hero h1 .mono{font-family:var(--mono);color:var(--accent);background:var(--accent-light);padding:2px 8px;border-radius:6px;font-size:38px}
+  .hero p{color:var(--ink-2);font-size:16px;margin-bottom:32px}
+  /* URL Form */
+  .url-form{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:24px;box-shadow:0 1px 3px rgba(0,0,0,.04)}
+  .url-input-row{display:flex;gap:10px}
+  .url-input{flex:1;padding:13px 16px;border:1px solid var(--border-2);border-radius:var(--radius);font-family:var(--sans);font-size:15px;color:var(--ink);background:var(--surface);outline:none;transition:border-color .15s}
+  .url-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(79,70,229,.1)}
+  .url-input::placeholder{color:var(--ink-3)}
+  .url-options{margin-top:14px;display:flex;gap:12px;flex-wrap:wrap}
+  .option-group{flex:1;min-width:180px}
+  .option-group label{display:block;font-size:12px;font-weight:500;color:var(--ink-2);margin-bottom:5px;text-transform:none}
+  .option-input{width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius);font-family:var(--sans);font-size:14px;color:var(--ink);background:var(--surface);outline:none}
+  .option-input:focus{border-color:var(--accent);box-shadow:0 0 0 2px rgba(79,70,229,.08)}
+  /* Result card */
+  .result-card{margin-top:20px;background:var(--accent-light);border:1px solid rgba(79,70,229,.2);border-radius:var(--radius-lg);padding:20px 24px;display:none}
+  .result-card.show{display:block}
+  .result-label{font-size:12px;font-weight:500;color:var(--accent);margin-bottom:8px;letter-spacing:.3px}
+  .result-code-row{display:flex;align-items:center;gap:12px}
+  .short-code{font-family:var(--mono);font-size:28px;font-weight:500;color:var(--ink);letter-spacing:-0.5px}
+  .short-url-full{font-family:var(--mono);font-size:14px;color:var(--ink-2);margin-top:4px}
+  .result-actions{display:flex;gap:8px;margin-left:auto}
+  .copy-icon{font-size:18px}
+  /* Stats row */
+  .stats-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-top:20px}
+  .stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px}
+  .stat-label{font-size:12px;color:var(--ink-3);font-weight:500;margin-bottom:4px}
+  .stat-value{font-size:24px;font-weight:600;color:var(--ink)}
+  /* Links table */
+  .section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+  .section-title{font-size:20px;font-weight:600}
+  .empty-state{text-align:center;padding:64px 24px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg)}
+  .empty-icon{font-size:40px;margin-bottom:12px;color:var(--ink-3)}
+  .empty-title{font-size:18px;font-weight:500;margin-bottom:6px}
+  .empty-desc{color:var(--ink-2);font-size:14px}
+  .links-table{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+  .table-header{display:grid;grid-template-columns:200px 1fr 80px 100px 120px;gap:0;padding:10px 20px;background:var(--surface-3);border-bottom:1px solid var(--border);font-size:12px;font-weight:500;color:var(--ink-2)}
+  .link-row{display:grid;grid-template-columns:200px 1fr 80px 100px 120px;gap:0;padding:14px 20px;border-bottom:1px solid var(--border);align-items:center;transition:background .1s}
+  .link-row:last-child{border-bottom:none}
+  .link-row:hover{background:var(--surface-2)}
+  .link-code{font-family:var(--mono);font-size:14px;font-weight:500;color:var(--accent)}
+  .link-url{font-size:13px;color:var(--ink-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-right:12px}
+  .link-clicks{font-size:14px;font-weight:500;color:var(--ink);text-align:center}
+  .link-date{font-size:12px;color:var(--ink-3)}
+  .link-actions{display:flex;gap:6px;justify-content:flex-end}
+  .icon-btn{width:30px;height:30px;border:1px solid var(--border);border-radius:6px;background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--ink-2);transition:all .15s;font-size:14px}
+  .icon-btn:hover{background:var(--surface-3);border-color:var(--border-2);color:var(--ink)}
+  .icon-btn.danger:hover{background:var(--danger-bg);border-color:var(--danger);color:var(--danger)}
+  /* Status badge */
+  .badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:500}
+  .badge-active{background:var(--success-bg);color:#047857}
+  /* Modal */
+  .modal-overlay{position:fixed;inset:0;background:rgba(15,23,42,.4);display:flex;align-items:center;justify-content:center;z-index:200;opacity:0;pointer-events:none;transition:opacity .2s}
+  .modal-overlay.show{opacity:1;pointer-events:all}
+  .modal{background:var(--surface);border-radius:var(--radius-lg);padding:32px;width:100%;max-width:420px;box-shadow:0 20px 60px rgba(0,0,0,.15);transform:translateY(8px);transition:transform .2s}
+  .modal-overlay.show .modal{transform:translateY(0)}
+  .modal-title{font-size:20px;font-weight:600;margin-bottom:4px}
+  .modal-sub{color:var(--ink-2);font-size:14px;margin-bottom:24px}
+  .form-group{margin-bottom:16px}
+  .form-label{display:block;font-size:13px;font-weight:500;margin-bottom:6px;color:var(--ink)}
+  .form-input{width:100%;padding:10px 14px;border:1px solid var(--border-2);border-radius:var(--radius);font-family:var(--sans);font-size:14px;color:var(--ink);background:var(--surface);outline:none;transition:border-color .15s}
+  .form-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(79,70,229,.1)}
+  .modal-toggle{font-size:13px;color:var(--ink-2);text-align:center;margin-top:16px}
+  .modal-toggle a{color:var(--accent);cursor:pointer;text-decoration:none;font-weight:500}
+  .modal-close{position:absolute;top:16px;right:16px;width:32px;height:32px;border:none;background:none;cursor:pointer;color:var(--ink-2);font-size:20px;border-radius:6px;display:flex;align-items:center;justify-content:center}
+  .modal-close:hover{background:var(--surface-3)}
+  .modal{position:relative}
+  /* Toast */
+  .toast-container{position:fixed;bottom:24px;right:24px;display:flex;flex-direction:column;gap:8px;z-index:300}
+  .toast{background:var(--ink);color:#fff;padding:12px 18px;border-radius:var(--radius);font-size:14px;display:flex;align-items:center;gap:10px;box-shadow:0 4px 16px rgba(0,0,0,.2);transform:translateX(120%);transition:transform .3s cubic-bezier(.34,1.56,.64,1);max-width:340px}
+  .toast.show{transform:translateX(0)}
+  .toast.success{background:#065F46}
+  .toast.error{background:#7F1D1D}
+  .toast.warn{background:#78350F}
+  /* QR Modal */
+  .qr-img{width:200px;height:200px;display:block;margin:16px auto;border:1px solid var(--border);border-radius:var(--radius)}
+  /* Loading */
+  .spinner{width:16px;height:16px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;display:inline-block}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  /* Responsive */
+  @media(max-width:700px){
+    .hero h1{font-size:28px}.hero h1 .mono{font-size:26px}
+    .url-input-row{flex-direction:column}
+    .table-header,.link-row{grid-template-columns:130px 1fr 60px}
+    .link-date,.link-actions-col{display:none}
+    .result-code-row{flex-direction:column;align-items:flex-start}
+    .result-actions{margin-left:0}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+<header>
+  <div class="header-inner">
+    <div class="logo">shrtnr<span>.</span></div>
+    <nav>
+      <button class="nav-btn active" onclick="showPage('home')">Home</button>
+      <button class="nav-btn" onclick="showPage('links')">My links</button>
+    </nav>
+    <div class="header-right">
+      <span class="user-info" id="user-display"></span>
+      <button class="btn btn-secondary btn-sm" id="auth-btn" onclick="openAuth()">Sign in</button>
+    </div>
+  </div>
+</header>
+
+<main>
+
+  <!-- HOME PAGE -->
+  <div class="page active" id="page-home">
+    <div class="hero">
+      <h1>Long links,<br><span class="mono">made short</span></h1>
+      <p>Paste any URL and get a clean, trackable short link in one click.</p>
+
+      <div class="url-form">
+        <div class="url-input-row">
+          <input class="url-input" id="url-input" type="url"
+            placeholder="https://example.com/very/long/path?with=params"
+            onkeydown="if(event.key==='Enter')shortenUrl()">
+          <button class="btn btn-primary btn-lg" id="shorten-btn" onclick="shortenUrl()">
+            <span id="shorten-label">Shorten</span>
+          </button>
+        </div>
+        <div class="url-options" id="url-options" style="margin-top:0;height:0;overflow:hidden;transition:all .3s">
+          <div class="option-group">
+            <label>Custom alias (optional)</label>
+            <input class="option-input" id="alias-input" placeholder="my-link" pattern="[a-z0-9\-_]+">
+          </div>
+          <div class="option-group">
+            <label>Expires (optional)</label>
+            <input class="option-input" id="expiry-input" type="datetime-local">
+          </div>
+        </div>
+        <div style="margin-top:10px;display:flex;gap:8px">
+          <button class="btn btn-ghost btn-sm" onclick="toggleOptions()" id="options-toggle" style="font-size:12px;color:var(--ink-3)">
+            ＋ Options
+          </button>
+        </div>
+
+        <div class="result-card" id="result-card">
+          <div class="result-label">Your short link is ready</div>
+          <div class="result-code-row">
+            <div>
+              <div class="short-code" id="result-code"></div>
+              <div class="short-url-full" id="result-url"></div>
+            </div>
+            <div class="result-actions">
+              <button class="btn btn-secondary btn-sm" onclick="copyResult()" id="copy-btn">
+                Copy
+              </button>
+              <button class="btn btn-ghost btn-sm" onclick="openResult()" id="open-btn">
+                Open ↗
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-row" id="home-stats" style="max-width:640px;margin:0 auto">
+      <div class="stat-card">
+        <div class="stat-label">Links created</div>
+        <div class="stat-value" id="stat-total">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Total clicks</div>
+        <div class="stat-value" id="stat-clicks">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Active today</div>
+        <div class="stat-value" id="stat-today">—</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- LINKS PAGE -->
+  <div class="page" id="page-links">
+    <div class="section-header">
+      <div class="section-title">Your links</div>
+      <button class="btn btn-primary btn-sm" onclick="showPage('home')">+ New link</button>
+    </div>
+    <div id="links-container">
+      <div class="empty-state" id="links-empty" style="display:none">
+        <div class="empty-icon">🔗</div>
+        <div class="empty-title">No links yet</div>
+        <div class="empty-desc">Create your first short link from the home page.</div>
+      </div>
+      <div class="links-table" id="links-table" style="display:none">
+        <div class="table-header">
+          <div>Short code</div>
+          <div>Destination</div>
+          <div style="text-align:center">Clicks</div>
+          <div>Created</div>
+          <div></div>
+        </div>
+        <div id="links-body"></div>
+      </div>
+    </div>
+    <div id="links-loading" style="text-align:center;padding:48px;color:var(--ink-3)">
+      Loading your links…
+    </div>
+  </div>
+
+</main>
+</div>
+
+<!-- AUTH MODAL -->
+<div class="modal-overlay" id="auth-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeAuth()">✕</button>
+    <div id="modal-login">
+      <div class="modal-title">Welcome back</div>
+      <div class="modal-sub">Sign in to manage your links</div>
+      <div class="form-group">
+        <label class="form-label">Email</label>
+        <input class="form-input" id="login-email" type="email" placeholder="you@example.com" autocomplete="email">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <input class="form-input" id="login-pass" type="password" placeholder="Your password" autocomplete="current-password"
+          onkeydown="if(event.key==='Enter')login()">
+      </div>
+      <div id="login-error" style="color:var(--danger);font-size:13px;margin-bottom:12px;display:none"></div>
+      <button class="btn btn-primary" style="width:100%" id="login-btn" onclick="login()">Sign in</button>
+      <div class="modal-toggle">No account? <a onclick="switchToRegister()">Create one</a></div>
+    </div>
+    <div id="modal-register" style="display:none">
+      <div class="modal-title">Create account</div>
+      <div class="modal-sub">Get started with free link shortening</div>
+      <div class="form-group">
+        <label class="form-label">Email</label>
+        <input class="form-input" id="reg-email" type="email" placeholder="you@example.com">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Username</label>
+        <input class="form-input" id="reg-user" type="text" placeholder="johndoe" autocomplete="username">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <input class="form-input" id="reg-pass" type="password" placeholder="Min. 8 characters"
+          onkeydown="if(event.key==='Enter')register()">
+      </div>
+      <div id="reg-error" style="color:var(--danger);font-size:13px;margin-bottom:12px;display:none"></div>
+      <button class="btn btn-primary" style="width:100%" id="reg-btn" onclick="register()">Create account</button>
+      <div class="modal-toggle">Have an account? <a onclick="switchToLogin()">Sign in</a></div>
+    </div>
+  </div>
+</div>
+
+<!-- QR MODAL -->
+<div class="modal-overlay" id="qr-modal">
+  <div class="modal" style="max-width:300px;text-align:center">
+    <button class="modal-close" onclick="closeQr()">✕</button>
+    <div class="modal-title" style="text-align:center">QR code</div>
+    <div id="qr-code-text" style="font-family:var(--mono);font-size:14px;color:var(--ink-2);margin-top:4px"></div>
+    <img class="qr-img" id="qr-img" src="" alt="QR code">
+    <a id="qr-download" download="qr.png" class="btn btn-secondary btn-sm" style="margin-top:4px">Download</a>
+  </div>
+</div>
+
+<!-- TOAST CONTAINER -->
+<div class="toast-container" id="toasts"></div>
+
+<script>
+const AUTH_URL = 'http://localhost:8081';
+const URL_URL  = 'http://localhost:8080';
+const ANA_URL  = 'http://localhost:8082';
+
+let token = localStorage.getItem('shr_token') || null;
+let user  = JSON.parse(localStorage.getItem('shr_user') || 'null');
+let lastResult = null;
+let optionsOpen = false;
+
+/* ── Init ─────────────────────────────────────────────────── */
+window.addEventListener('load', () => {
+  updateAuthUI();
+  if (user) loadStats();
+});
+
+function updateAuthUI() {
+  const btn = document.getElementById('auth-btn');
+  const disp = document.getElementById('user-display');
+  if (user) {
+    disp.textContent = user.username || user.email || '';
+    btn.textContent = 'Sign out';
+    btn.onclick = logout;
+  } else {
+    disp.textContent = '';
+    btn.textContent = 'Sign in';
+    btn.onclick = openAuth;
+  }
+}
+
+/* ── Pages ────────────────────────────────────────────────── */
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  document.querySelectorAll('.nav-btn')[name==='home'?0:1].classList.add('active');
+  if (name === 'links') loadLinks();
+}
+
+/* ── URL Shortening ───────────────────────────────────────── */
+function toggleOptions() {
+  const opts = document.getElementById('url-options');
+  const btn  = document.getElementById('options-toggle');
+  optionsOpen = !optionsOpen;
+  opts.style.height = optionsOpen ? 'auto' : '0';
+  opts.style.marginTop = optionsOpen ? '14px' : '0';
+  btn.textContent = optionsOpen ? '− Options' : '＋ Options';
+}
+
+async function shortenUrl() {
+  const rawUrl = document.getElementById('url-input').value.trim();
+  if (!rawUrl) { toast('Paste a URL first', 'warn'); return; }
+  if (!rawUrl.startsWith('http')) {
+    toast('URL must start with http:// or https://', 'error'); return;
+  }
+
+  const btn = document.getElementById('shorten-btn');
+  const lbl = document.getElementById('shorten-label');
+  btn.disabled = true;
+  lbl.innerHTML = '<span class="spinner"></span>';
+
+  try {
+    const body = { originalUrl: rawUrl };
+    const alias = document.getElementById('alias-input').value.trim();
+    const expiry = document.getElementById('expiry-input').value;
+    if (alias) body.customAlias = alias;
+    if (expiry) body.expiresAt = new Date(expiry).toISOString();
+
+    const headers = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = 'Bearer ' + token;
+
+    const res = await fetch(URL_URL + '/api/v1/urls', {
+      method: 'POST', headers, body: JSON.stringify(body)
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || err.message || 'Could not shorten URL');
+    }
+
+    const data = await res.json();
+    lastResult = data;
+    showResult(data);
+    if (user) loadStats();
+    toast('Link created', 'success');
+    document.getElementById('url-input').value = '';
+    document.getElementById('alias-input').value = '';
+    document.getElementById('expiry-input').value = '';
+  } catch(e) {
+    toast(e.message || 'Something went wrong', 'error');
+  } finally {
+    btn.disabled = false;
+    lbl.textContent = 'Shorten';
+  }
+}
+
+function showResult(data) {
+  const card = document.getElementById('result-card');
+  const fullUrl = data.shortUrl || (URL_URL + '/' + data.shortCode);
+  document.getElementById('result-code').textContent = data.shortCode;
+  document.getElementById('result-url').textContent = fullUrl;
+  card.classList.add('show');
+}
+
+function copyResult() {
+  if (!lastResult) return;
+  const url = lastResult.shortUrl || (URL_URL + '/' + lastResult.shortCode);
+  navigator.clipboard.writeText(url).then(() => toast('Copied to clipboard', 'success'));
+}
+
+function openResult() {
+  if (!lastResult) return;
+  window.open(URL_URL + '/' + lastResult.shortCode, '_blank');
+}
+
+/* ── Auth ─────────────────────────────────────────────────── */
+function openAuth()   { document.getElementById('auth-modal').classList.add('show'); switchToLogin(); }
+function closeAuth()  { document.getElementById('auth-modal').classList.remove('show'); }
+function switchToLogin()    { document.getElementById('modal-login').style.display=''; document.getElementById('modal-register').style.display='none'; clearAuthErrors(); }
+function switchToRegister() { document.getElementById('modal-login').style.display='none'; document.getElementById('modal-register').style.display=''; clearAuthErrors(); }
+function clearAuthErrors()  { ['login-error','reg-error'].forEach(id => { const el=document.getElementById(id); el.style.display='none'; el.textContent=''; }); }
+
+async function login() {
+  const email = document.getElementById('login-email').value.trim();
+  const pass  = document.getElementById('login-pass').value;
+  const errEl = document.getElementById('login-error');
+  const btn   = document.getElementById('login-btn');
+  if (!email || !pass) { showError(errEl, 'Email and password are required'); return; }
+
+  btn.disabled = true; btn.textContent = 'Signing in…';
+  try {
+    const res = await fetch(AUTH_URL + '/api/v1/auth/login', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password: pass })
+    });
+    if (!res.ok) { const e = await res.json().catch(()=>{}); throw new Error(e?.detail || 'Invalid credentials'); }
+    const data = await res.json();
+    saveSession(data);
+    closeAuth();
+    toast('Signed in', 'success');
+    loadStats();
+  } catch(e) { showError(errEl, e.message); }
+  finally { btn.disabled=false; btn.textContent='Sign in'; }
+}
+
+async function register() {
+  const email = document.getElementById('reg-email').value.trim();
+  const uname = document.getElementById('reg-user').value.trim();
+  const pass  = document.getElementById('reg-pass').value;
+  const errEl = document.getElementById('reg-error');
+  const btn   = document.getElementById('reg-btn');
+  if (!email || !uname || !pass) { showError(errEl, 'All fields are required'); return; }
+  if (pass.length < 8) { showError(errEl, 'Password must be at least 8 characters'); return; }
+
+  btn.disabled = true; btn.textContent = 'Creating account…';
+  try {
+    const res = await fetch(AUTH_URL + '/api/v1/auth/register', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, username: uname, password: pass })
+    });
+    if (!res.ok) { const e = await res.json().catch(()=>{}); throw new Error(e?.detail || e?.message || 'Registration failed'); }
+    const data = await res.json();
+    saveSession(data);
+    closeAuth();
+    toast('Account created — welcome!', 'success');
+    loadStats();
+  } catch(e) { showError(errEl, e.message); }
+  finally { btn.disabled=false; btn.textContent='Create account'; }
+}
+
+function saveSession(data) {
+  token = data.accessToken;
+  user = data.user || { email: document.getElementById('login-email').value || document.getElementById('reg-email').value };
+  localStorage.setItem('shr_token', token);
+  localStorage.setItem('shr_user', JSON.stringify(user));
+  updateAuthUI();
+}
+
+function logout() {
+  token = null; user = null;
+  localStorage.removeItem('shr_token');
+  localStorage.removeItem('shr_user');
+  updateAuthUI();
+  document.getElementById('stat-total').textContent = '—';
+  document.getElementById('stat-clicks').textContent = '—';
+  document.getElementById('stat-today').textContent = '—';
+  toast('Signed out');
+}
+
+function showError(el, msg) { el.textContent = msg; el.style.display = 'block'; }
+
+/* ── Links list ───────────────────────────────────────────── */
+async function loadLinks() {
+  const loading = document.getElementById('links-loading');
+  const empty   = document.getElementById('links-empty');
+  const table   = document.getElementById('links-table');
+  const body    = document.getElementById('links-body');
+
+  loading.style.display = 'block';
+  empty.style.display = 'none';
+  table.style.display = 'none';
+
+  if (!token) {
+    loading.textContent = 'Sign in to see your links.';
+    loading.style.color = 'var(--ink-3)';
+    return;
+  }
+
+  try {
+    const res = await fetch(URL_URL + '/api/v1/urls', {
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+    if (!res.ok) throw new Error('Could not load links');
+    const data = await res.json();
+    const links = data.content || data || [];
+    loading.style.display = 'none';
+
+    if (!links.length) { empty.style.display = 'block'; return; }
+
+    body.innerHTML = links.map(l => `
+      <div class="link-row">
+        <div>
+          <div class="link-code">${escHtml(l.shortCode)}</div>
+          <span class="badge badge-active" style="margin-top:2px">active</span>
+        </div>
+        <div class="link-url" title="${escHtml(l.originalUrl)}">${escHtml(l.originalUrl)}</div>
+        <div class="link-clicks">${l.totalClicks ?? 0}</div>
+        <div class="link-date">${formatDate(l.createdAt)}</div>
+        <div class="link-actions">
+          <button class="icon-btn" title="Copy link" onclick="copyLink('${escHtml(l.shortCode)}')">⎘</button>
+          <button class="icon-btn" title="QR code" onclick="showQr('${escHtml(l.shortCode)}')">▦</button>
+          <button class="icon-btn danger" title="Delete" onclick="deleteLink('${escHtml(l.shortCode)}')">✕</button>
+        </div>
+      </div>
+    `).join('');
+    table.style.display = 'block';
+  } catch(e) {
+    loading.textContent = e.message;
+  }
+}
+
+async function loadStats() {
+  if (!token) return;
+  try {
+    const res = await fetch(URL_URL + '/api/v1/urls?page=0&size=100', {
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+    if (!res.ok) return;
+    const data = await res.json();
+    const links = data.content || data || [];
+    const totalClicks = links.reduce((s, l) => s + (l.totalClicks || 0), 0);
+    const today = new Date().toDateString();
+    const todayCount = links.filter(l => new Date(l.createdAt).toDateString() === today).length;
+    document.getElementById('stat-total').textContent  = links.length;
+    document.getElementById('stat-clicks').textContent = totalClicks;
+    document.getElementById('stat-today').textContent  = todayCount;
+  } catch(_) {}
+}
+
+function copyLink(code) {
+  navigator.clipboard.writeText(URL_URL + '/' + code)
+    .then(() => toast('Copied', 'success'));
+}
+
+async function deleteLink(code) {
+  if (!confirm('Deactivate this link? It will no longer redirect.')) return;
+  try {
+    const res = await fetch(URL_URL + '/api/v1/urls/' + code, {
+      method: 'DELETE',
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+    if (!res.ok) throw new Error('Could not delete');
+    toast('Link deactivated', 'success');
+    loadLinks();
+    loadStats();
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+/* ── QR ───────────────────────────────────────────────────── */
+function showQr(code) {
+  const modal = document.getElementById('qr-modal');
+  const img   = document.getElementById('qr-img');
+  const dl    = document.getElementById('qr-download');
+  const lbl   = document.getElementById('qr-code-text');
+  const src   = URL_URL + '/api/v1/urls/' + code + '/qr?size=300';
+  img.src = src;
+  dl.href = src;
+  lbl.textContent = code;
+  modal.classList.add('show');
+}
+function closeQr() { document.getElementById('qr-modal').classList.remove('show'); }
+
+/* ── Toasts ───────────────────────────────────────────────── */
+function toast(msg, type = '') {
+  const container = document.getElementById('toasts');
+  const el = document.createElement('div');
+  el.className = 'toast ' + type;
+  el.textContent = msg;
+  container.appendChild(el);
+  requestAnimationFrame(() => el.classList.add('show'));
+  setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 400); }, 3000);
+}
+
+/* ── Utils ────────────────────────────────────────────────── */
+function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function formatDate(s) {
+  if (!s) return '—';
+  const d = new Date(s);
+  return d.toLocaleDateString('en-GB', { day:'numeric', month:'short' });
+}
+
+/* Close modals on overlay click */
+document.getElementById('auth-modal').addEventListener('click', e => { if(e.target===e.currentTarget) closeAuth(); });
+document.getElementById('qr-modal').addEventListener('click',  e => { if(e.target===e.currentTarget) closeQr(); });
+</script>
+</body>
+</html>

@@ -86,13 +86,16 @@ public class SecurityConfig {
     }
 
     @Bean
-    public RSAPublicKey jwtPublicKey(@Value("${jwt.public-key}") String pem) throws Exception {
-        // Strip PEM headers and whitespace
+    public RSAPublicKey jwtPublicKey(@Value("${jwt.public-key}") String keyValue) throws Exception {
+        String pem = keyValue.trim();
+        if (!pem.contains("-----")) {
+            pem = new String(java.util.Base64.getDecoder().decode(pem));
+        }
         String stripped = pem
-            .replace("-----BEGIN PUBLIC KEY-----", "")
-            .replace("-----END PUBLIC KEY-----", "")
+            .replaceAll("-----BEGIN.*?-----", "")
+            .replaceAll("-----END.*?-----", "")
             .replaceAll("\\s+", "");
-        byte[] decoded = Base64.getDecoder().decode(stripped);
+        byte[] decoded = java.util.Base64.getDecoder().decode(stripped);
         X509EncodedKeySpec spec = new X509EncodedKeySpec(decoded);
         return (RSAPublicKey) KeyFactory.getInstance("RSA").generatePublic(spec);
     }

@@ -15,7 +15,15 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Map;
 
-@SpringBootApplication(scanBasePackages = "com.shortener")
+// To this:
+@SpringBootApplication(
+    scanBasePackages = "com.shortener",
+    exclude = {
+        org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration.class,
+        org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration.class,
+        org.springframework.boot.autoconfigure.flyway.FlywayAutoConfiguration.class
+    }
+)
 public class AnalyticsServiceApplication {
     public static void main(String[] args) {
         SpringApplication.run(AnalyticsServiceApplication.class, args);
